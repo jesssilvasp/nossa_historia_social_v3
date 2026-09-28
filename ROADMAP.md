@@ -23,12 +23,12 @@
 
 ## Fase 2 --- Interações
 
--   [ ] curtir
--   [ ] comentários
--   [ ] salvar
--   [ ] momento especial
--   [ ] menu editar/excluir
--   [ ] notificações
+-   [x] curtir
+-   [x] comentários
+-   [x] salvar
+-   [x] momento especial
+-   [x] menu editar/excluir
+-   [x] notificações
 
 ## Fase 3 --- Perfis
 

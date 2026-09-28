@@ -12,7 +12,9 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, context: Params) {
   const viewer = await getCurrentProfile();
   const { id } = await context.params;
-  const items = await getComments(Number(id), viewer.id);
+  const postId = Number(id);
+  if (!Number.isInteger(postId) || postId < 1) return NextResponse.json({ error: "Momento inválido." }, { status: 400 });
+  const items = await getComments(postId, viewer.id);
   return NextResponse.json({ items });
 }
 
@@ -22,6 +24,8 @@ export async function POST(request: Request, context: Params) {
   const postId = Number(id);
   const body = (await request.json().catch(() => null)) as { content?: string } | null;
   const content = (body?.content ?? "").trim();
+  if (!Number.isInteger(postId) || postId < 1) return NextResponse.json({ error: "Momento inválido." }, { status: 400 });
+  if (!content || content.length > 2000) return NextResponse.json({ error: "Comentário inválido ou acima de 2.000 caracteres." }, { status: 400 });
   if (!content) return NextResponse.json({ error: "Comentário vazio." }, { status: 400 });
 
   const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);

@@ -2,7 +2,7 @@
 
 ## Objetivo atual
 
-FASE 1: transformar a Home em uma experiência de feed social privado.
+FASE 2: concluir interacoes sociais do feed privado.
 
 ## Auditoria obrigatória
 
@@ -54,4 +54,15 @@ Funciona \| Reutilizar \| Alterar
 -   corrigir erros;
 -   atualizar TASKS.md;
 -   marcar progresso no ROADMAP.md;
--   parar antes da Fase 2.
+-   parar antes da Fase 3.
+
+
+## Fase 2 - Interacoes sociais (status)
+
+- Curtidas, salvamentos, comentarios e notificacoes persistem no PostgreSQL.
+- Autorizacao no servidor para editar/excluir posts e comentarios, e marcar momento especial.
+- Menus de post, confirmacoes, edicao, exclusao e vinculo a album adicionados.
+- Notificacoes abrem o post relacionado e podem ser marcadas como lidas individualmente.
+- Migration pendente de aplicar na Neon: migrations/0002_post_updates.sql.
+- Validacao local: typecheck, lint e build passaram; nao ha script de testes no package.json.
+- Limitacao existente: selecao de perfil por cookie nao e autenticacao forte; proteger o deploy antes de expor publicamente.

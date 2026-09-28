@@ -59,6 +59,7 @@ export const posts = pgTable(
     musicUrl: text("music_url"),
     musicCover: text("music_cover"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
   },
   (t) => [index("posts_created_at_idx").on(t.createdAt), index("posts_author_idx").on(t.authorId)],
 );

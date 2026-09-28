@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
+import { ActionDialog } from "@/components/ui/ActionDialog";
 import { useToast } from "@/components/ui/toast";
 import { clock, fullDate, timeAgo } from "@/lib/format";
 import type { CommentItem, FeedPost } from "@/lib/data";
 
 type Viewer = { id: number; displayName: string; username: string; avatarUrl: string | null };
 
-export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
+export function PostCard({ post, viewer, onDeleted }: { post: FeedPost; viewer: Viewer; onDeleted?: (id: number) => void }) {
   const { toast } = useToast();
   const [liked, setLiked] = useState(post.liked);
   const [saved, setSaved] = useState(post.saved);
@@ -21,10 +22,28 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [content, setContent] = useState(post.content);
+  const [updatedAt, setUpdatedAt] = useState(post.updatedAt);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [albumOpen, setAlbumOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [albums, setAlbums] = useState<{ id: number; title: string }[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<Record<"like" | "save" | "special", boolean>>({ like: false, save: false, special: false });
+  const actionLocks = useRef(new Set<string>());
+  const mine = post.author.id === viewer.id;
 
   async function react(action: "like" | "save" | "special") {
-    const response = await fetch(`/api/posts/${post.id}/react?action=${action}`, { method: "POST" });
-    if (!response.ok) {
+    if (actionLocks.current.has(action)) return;
+    actionLocks.current.add(action);
+    setActionBusy((current) => ({ ...current, [action]: true }));
+    const oldLiked = liked, oldSaved = saved, oldCount = likeCount;
+    if (action === "like") { setLiked(!liked); setLikeCount(Math.max(0, likeCount + (liked ? -1 : 1))); }
+    if (action === "save") setSaved(!saved);
+    const response = await fetch(`/api/posts/${post.id}/react?action=${action}`, { method: "POST" }).catch(() => null);
+    if (!response?.ok) {
+      setLiked(oldLiked); setSaved(oldSaved); setLikeCount(oldCount); actionLocks.current.delete(action); setActionBusy((current) => ({ ...current, [action]: false }));
       toast("Não conseguimos fazer isso agora.", "error");
       return;
     }
@@ -32,7 +51,6 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
     if (action === "like") {
       const nextLiked = Boolean(data.liked);
       setLiked(nextLiked);
-      setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
       if (nextLiked) {
         setBeat(true);
         window.setTimeout(() => setBeat(false), 620);
@@ -46,14 +64,57 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
       setIsSpecial(Boolean(data.isSpecial));
       toast(data.isSpecial ? "Marcado como Momento Especial ✨" : "Deixou de ser especial");
     }
+    actionLocks.current.delete(action);
+    setActionBusy((current) => ({ ...current, [action]: false }));
   }
 
   async function loadComments() {
     setCommentsLoading(true);
-    const response = await fetch(`/api/posts/${post.id}/comments`);
-    const data = (await response.json()) as { items: CommentItem[] };
-    setComments(data.items ?? []);
-    setCommentsLoading(false);
+    try {
+      const response = await fetch(`/api/posts/${post.id}/comments`);
+      if (!response.ok) throw new Error();
+      const data = (await response.json()) as { items: CommentItem[] };
+      setComments(data.items ?? []);
+      setCommentCount(data.items?.length ?? 0);
+    } catch { toast("Não foi possível carregar os comentários.", "error"); }
+    finally { setCommentsLoading(false); }
+  }
+
+  async function savePostEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy("edit");
+    const response = await fetch(`/api/posts/${post.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }).catch(() => null);
+    setBusy(null);
+    if (!response?.ok) { toast("Não foi possível editar o momento.", "error"); return; }
+    const data = await response.json() as { post: { updatedAt: string | null } };
+    setUpdatedAt(data.post.updatedAt); setEditOpen(false); toast("Momento atualizado");
+  }
+
+  async function deletePost() {
+    if (busy) return;
+    setBusy("delete");
+    const response = await fetch(`/api/posts/${post.id}`, { method: "DELETE" }).catch(() => null);
+    setBusy(null);
+    if (!response?.ok) { toast("Não foi possível excluir o momento.", "error"); return; }
+    toast("Momento excluído"); onDeleted?.(post.id);
+  }
+
+  async function openAlbumPicker() {
+    setBusy("albums");
+    try {
+      const response = await fetch("/api/albums");
+      if (!response.ok) throw new Error();
+      const data = await response.json() as { items: { id: number; title: string }[] };
+      setAlbums(data.items); setAlbumOpen(true);
+    } catch { toast("Não foi possível carregar os álbuns.", "error"); }
+    finally { setBusy(null); }
+  }
+
+  async function addToAlbum(albumId: number | null) {
+    const response = await fetch(`/api/posts/${post.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ albumId }) }).catch(() => null);
+    if (!response?.ok) { toast("Não foi possível atualizar o álbum.", "error"); return; }
+    setAlbumOpen(false); toast(albumId ? "Momento adicionado ao álbum âœ¨" : "Momento removido do álbum");
   }
 
   function toggleComments() {
@@ -82,20 +143,23 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
             {post.author.displayName}
           </Link>
           <p className="truncate text-xs text-ink-soft">
-            @{post.author.username} • <time dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>
+            @{post.author.username} • <time dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>{updatedAt && <span> · editado</span>}
           </p>
         </div>
-        <Link
-          href={`/albuns`}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
           className="ml-auto grid h-10 w-10 place-items-center rounded-full text-ink-soft transition hover:bg-brand-pastel/40 hover:text-brand"
           aria-label="Opções do momento"
         >
           <span aria-hidden>⋯</span>
-        </Link>
+        </button>
       </header>
 
-      {post.content && (
-        <p className="whitespace-pre-wrap px-4 pb-3 text-[15px] leading-relaxed text-ink">{post.content}</p>
+      {content && (
+        <p className="whitespace-pre-wrap px-4 pb-3 text-[15px] leading-relaxed text-ink">{content}</p>
       )}
 
       {post.media.length > 0 && (
@@ -118,6 +182,7 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
       <div className="mt-2 flex items-center gap-1 border-t border-brand-pastel/60 px-2 py-1.5">
         <ActionButton
           onClick={() => void react("like")}
+          disabled={actionBusy.like}
           active={liked}
           activeClass="text-brand"
           label={liked ? "Curtido" : "Curtir"}
@@ -136,30 +201,34 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
         />
         <ActionButton
           onClick={() => void react("save")}
+          disabled={actionBusy.save}
           active={saved}
           activeClass="text-brand"
           label={saved ? "Salvo" : "Salvar"}
           icon="🔖"
         />
-        <ActionButton
+        {mine && <ActionButton
           onClick={() => void react("special")}
+          disabled={actionBusy.special}
           active={isSpecial}
           activeClass="text-brand"
           label="Especial"
           icon="✨"
-        />
+        />}
       </div>
 
-      {commentsOpen && (
+      {commentsOpen && commentsLoading && <div className="border-t border-brand-pastel/60 bg-brand-pastel/10 px-4 py-3"><div className="skeleton h-12 w-full" /></div>}
+      {commentsOpen && !commentsLoading && (
         <CommentSection
           postId={post.id}
           viewer={viewer}
           initial={comments}
-          loading={commentsLoading}
+          loading={false}
           onLoaded={(items) => {
             setComments(items);
             setCommentCount(items.length);
           }}
+          onCountChange={setCommentCount}
         />
       )}
 
@@ -173,8 +242,27 @@ export function PostCard({ post, viewer }: { post: FeedPost; viewer: Viewer }) {
           onLike={() => void react("like")}
         />
       )}
+      {menuOpen && <ActionDialog title="Opções do momento" onClose={() => setMenuOpen(false)}><div role="menu" className="flex flex-col gap-1">
+        {mine ? <>
+          <MenuAction onClick={() => { setMenuOpen(false); setEditOpen(true); }}>Editar post</MenuAction>
+          <MenuAction onClick={() => { setMenuOpen(false); void react("special"); }}>{isSpecial ? "Desmarcar Momento Especial" : "Marcar Momento Especial"}</MenuAction>
+          <MenuAction onClick={() => { setMenuOpen(false); void openAlbumPicker(); }}>Adicionar ao álbum</MenuAction>
+          {post.albumId && <MenuAction onClick={() => { setMenuOpen(false); void addToAlbum(null); }}>Remover do álbum</MenuAction>}
+          <MenuAction danger onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}>Excluir post</MenuAction>
+        </> : <>
+          <MenuAction onClick={() => { setMenuOpen(false); void react("save"); }}>{saved ? "Remover dos salvos" : "Salvar"}</MenuAction>
+          <MenuAction onClick={() => void navigator.clipboard.writeText(`${location.origin}/post/${post.id}`).then(() => { setMenuOpen(false); toast("Link copiado"); }).catch(() => toast("Não foi possível copiar o link.", "error"))}>Copiar link</MenuAction>
+        </>}
+      </div></ActionDialog>}
+      {editOpen && <ActionDialog title="Editar momento" onClose={() => setEditOpen(false)}><form onSubmit={(event) => void savePostEdit(event)} className="flex flex-col gap-3"><textarea value={content} onChange={(event) => setContent(event.target.value)} maxLength={5000} rows={5} aria-label="Texto do momento" className="w-full rounded-2xl border border-brand-pastel bg-white p-3 text-sm text-ink outline-none focus:border-brand" /><button disabled={busy === "edit"} className="min-h-11 rounded-full bg-brand px-4 font-bold text-white disabled:opacity-50">{busy === "edit" ? "Salvando..." : "Salvar"}</button></form></ActionDialog>}
+      {confirmDelete && <ActionDialog title="Excluir este momento? 💭" onClose={() => setConfirmDelete(false)}><p className="text-sm text-ink-soft">Os comentários e interações associados poderão ser removidos.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="min-h-11 rounded-full border border-brand-pastel px-4 text-sm font-bold text-ink">Cancelar</button><button type="button" disabled={busy === "delete"} onClick={() => void deletePost()} className="min-h-11 rounded-full bg-brand px-4 text-sm font-bold text-white disabled:opacity-50">{busy === "delete" ? "Excluindo..." : "Excluir Momento"}</button></div></ActionDialog>}
+      {albumOpen && <ActionDialog title="Adicionar momento a..." onClose={() => setAlbumOpen(false)}><ul className="flex max-h-72 flex-col gap-2 overflow-auto">{albums.map((album) => <li key={album.id}><button type="button" onClick={() => void addToAlbum(album.id)} className="min-h-12 w-full rounded-2xl border border-brand-pastel px-4 text-left text-sm font-semibold text-ink hover:bg-brand-pastel/25">♡ {album.title}</button></li>)}</ul>{albums.length === 0 && <p className="text-sm text-ink-soft">Nenhum álbum disponível.</p>}</ActionDialog>}
     </article>
   );
+}
+
+function MenuAction({ children, onClick, danger = false }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
+  return <button type="button" role="menuitem" onClick={onClick} className={`min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold transition hover:bg-brand-pastel/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${danger ? "text-red-600" : "text-ink"}`}>{children}</button>;
 }
 
 function ActionButton({
@@ -186,6 +274,7 @@ function ActionButton({
   extraClass = "",
   count,
   ariaExpanded,
+  disabled = false,
 }: {
   icon: string;
   label: string;
@@ -195,22 +284,25 @@ function ActionButton({
   extraClass?: string;
   count?: number;
   ariaExpanded?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
       aria-pressed={active}
       aria-expanded={ariaExpanded}
-      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl px-2 text-sm font-semibold transition hover:bg-brand-pastel/40 active:scale-[0.97] ${
+      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl px-2 text-sm font-semibold transition hover:bg-brand-pastel/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand active:scale-[0.97] ${
         active ? activeClass : "text-ink-soft"
-      } ${extraClass}`}
+      } ${extraClass} disabled:opacity-60`}
     >
       <span aria-hidden className={active ? "text-base" : "text-base"}>
         {icon}
       </span>
       <span className="hidden sm:inline">{label}</span>
-      {typeof count === "number" && count > 0 && <span className="text-xs tabular-nums">{count}</span>}
+      {typeof count === "number" && <span className="text-xs tabular-nums">{count}</span>}
     </button>
   );
 }
@@ -421,12 +513,14 @@ function CommentSection({
   initial,
   loading,
   onLoaded,
+  onCountChange,
 }: {
   postId: number;
   viewer: Viewer;
   initial: CommentItem[];
   loading: boolean;
   onLoaded: (items: CommentItem[]) => void;
+  onCountChange: (count: number) => void;
 }) {
   const { toast } = useToast();
   const [items, setItems] = useState<CommentItem[]>(initial);
@@ -434,54 +528,63 @@ function CommentSection({
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  useEffect(() => {
-    setItems(initial);
-  }, [initial]);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function send() {
-    if (!value.trim()) return;
+    if (!value.trim() || sending) return;
     setSending(true);
     const response = await fetch(`/api/posts/${postId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: value }),
-    });
+    }).catch(() => null);
     setSending(false);
-    if (!response.ok) {
+    if (!response?.ok) {
       toast("Não deu para enviar o comentário.", "error");
       return;
     }
     const data = (await response.json()) as { items: CommentItem[] };
     setItems(data.items);
     onLoaded(data.items);
+    onCountChange(data.items.length);
     setValue("");
+    toast("Comentário publicado");
   }
 
   async function saveEdit(id: number) {
+    if (pending) return;
+    setPending(true);
     const response = await fetch(`/api/comments/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: editValue }),
-    });
-    if (!response.ok) {
+    }).catch(() => null);
+    setPending(false);
+    if (!response?.ok) {
       toast("Só é possível editar o seu comentário.", "error");
       return;
     }
-    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, content: editValue, edited: true } : c)));
+    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, content: editValue.trim(), edited: true } : c)));
     setEditingId(null);
     toast("Comentário atualizado");
   }
 
   async function remove(id: number) {
-    const response = await fetch(`/api/comments/${id}`, { method: "DELETE" });
-    if (!response.ok) {
+    if (pending) return;
+    setPending(true);
+    const response = await fetch(`/api/comments/${id}`, { method: "DELETE" }).catch(() => null);
+    setPending(false);
+    if (!response?.ok) {
       toast("Só é possível excluir o seu comentário.", "error");
       return;
     }
     const next = items.filter((c) => c.id !== id);
     setItems(next);
     onLoaded(next);
+    onCountChange(next.length);
+    setDeleteId(null);
+    toast("Comentário excluído");
   }
 
   return (
@@ -513,10 +616,12 @@ function CommentSection({
                   <button
                     type="button"
                     onClick={() => void saveEdit(comment.id)}
-                    className="min-h-11 rounded-xl bg-brand px-3 text-sm font-bold text-white"
+                    disabled={pending || !editValue.trim()}
+                    className="min-h-11 rounded-xl bg-brand px-3 text-sm font-bold text-white disabled:opacity-50"
                   >
                     Salvar
                   </button>
+                  <button type="button" onClick={() => setEditingId(null)} className="min-h-11 rounded-xl border border-brand-pastel px-3 text-sm font-bold text-ink">Cancelar</button>
                 </div>
               ) : (
                 <p className="whitespace-pre-wrap break-words text-sm text-ink">{comment.content}</p>
@@ -533,7 +638,7 @@ function CommentSection({
                   >
                     editar
                   </button>
-                  <button type="button" onClick={() => void remove(comment.id)} className="hover:text-brand">
+                  <button type="button" onClick={() => setDeleteId(comment.id)} className="hover:text-brand">
                     excluir
                   </button>
                 </div>
@@ -569,6 +674,8 @@ function CommentSection({
           Enviar
         </button>
       </form>
+      {deleteId !== null && <ActionDialog title="Excluir este comentário?" onClose={() => setDeleteId(null)}><p className="text-sm text-ink-soft">Essa ação não poderá ser desfeita.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setDeleteId(null)} className="min-h-11 rounded-full border border-brand-pastel px-4 text-sm font-bold text-ink">Cancelar</button><button type="button" disabled={pending} onClick={() => void remove(deleteId)} className="min-h-11 rounded-full bg-brand px-4 text-sm font-bold text-white disabled:opacity-50">{pending ? "Excluindo..." : "Excluir"}</button></div></ActionDialog>}
     </div>
   );
 }
+

@@ -67,7 +67,7 @@ export function FeedList({
   return (
     <div className="flex flex-col gap-4">
       {items.map((post) => (
-        <PostCard key={post.id} post={post} viewer={viewer} />
+        <PostCard key={post.id} post={post} viewer={viewer} onDeleted={(id) => setItems((current) => current.filter((item) => item.id !== id))} />
       ))}
 
       {cursor && (

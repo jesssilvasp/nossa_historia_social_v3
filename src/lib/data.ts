@@ -42,6 +42,7 @@ export type FeedPost = {
   specialTitle: string | null;
   albumId: number | null;
   createdAt: string;
+  updatedAt: string | null;
   music: { title: string; artist: string; url: string; cover: string | null } | null;
   author: Author;
   media: MediaItem[];
@@ -69,6 +70,7 @@ function basePostSelect(viewerId: number) {
     specialTitle: posts.specialTitle,
     albumId: posts.albumId,
     createdAt: posts.createdAt,
+    updatedAt: posts.updatedAt,
     musicTitle: posts.musicTitle,
     musicArtist: posts.musicArtist,
     musicUrl: posts.musicUrl,
@@ -91,6 +93,7 @@ type RawPost = {
   specialTitle: string | null;
   albumId: number | null;
   createdAt: Date;
+  updatedAt: Date | null;
   musicTitle: string | null;
   musicArtist: string | null;
   musicUrl: string | null;
@@ -135,6 +138,7 @@ async function attachMedia(rows: RawPost[]): Promise<FeedPost[]> {
     specialTitle: r.specialTitle,
     albumId: r.albumId,
     createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt?.toISOString() ?? null,
     music:
       r.musicUrl || r.musicTitle
         ? {
@@ -252,12 +256,14 @@ export type NotificationItem = {
   postId: number | null;
   actorName: string | null;
   actorAvatar: string | null;
+  mediaUrl: string | null;
 };
 
 export async function getNotifications(profileId: number, limit = 30): Promise<NotificationItem[]> {
   await ensureBootstrap();
   const actor = sql<string | null>`(select display_name from ${profiles} where ${profiles.id} = ${notifications.actorId})`;
   const avatar = sql<string | null>`(select avatar_url from ${profiles} where ${profiles.id} = ${notifications.actorId})`;
+  const mediaUrl = sql<string | null>`(select ${postMedia.url} from ${postMedia} where ${postMedia.postId} = ${notifications.postId} order by ${postMedia.position}, ${postMedia.id} limit 1)`;
   const rows = await db
     .select({
       id: notifications.id,
@@ -268,6 +274,7 @@ export async function getNotifications(profileId: number, limit = 30): Promise<N
       postId: notifications.postId,
       actorName: actor,
       actorAvatar: avatar,
+      mediaUrl,
     })
     .from(notifications)
     .where(eq(notifications.profileId, profileId))
@@ -283,6 +290,7 @@ export async function getNotifications(profileId: number, limit = 30): Promise<N
     postId: r.postId,
     actorName: r.actorName,
     actorAvatar: r.actorAvatar,
+    mediaUrl: r.mediaUrl,
   }));
 }
 
@@ -318,11 +326,17 @@ export async function getAlbums(): Promise<AlbumWithMeta[]> {
       ),
     )
     .groupBy(albumMemories.albumId, albumMemories.kind);
+  const linkedCounts = await db
+    .select({ albumId: posts.albumId, kind: postMedia.kind, total: sql<number>`count(*)::int` })
+    .from(posts)
+    .innerJoin(postMedia, eq(postMedia.postId, posts.id))
+    .where(inArray(posts.albumId, rows.map((r) => r.id)))
+    .groupBy(posts.albumId, postMedia.kind);
 
   return rows.map((a) => ({
     ...a,
-    photoCount: Number(counts.find((c) => c.albumId === a.id && c.kind === "image")?.total ?? 0),
-    videoCount: Number(counts.find((c) => c.albumId === a.id && c.kind === "video")?.total ?? 0),
+    photoCount: Number(counts.find((c) => c.albumId === a.id && c.kind === "image")?.total ?? 0) + Number(linkedCounts.find((c) => c.albumId === a.id && c.kind === "image")?.total ?? 0),
+    videoCount: Number(counts.find((c) => c.albumId === a.id && c.kind === "video")?.total ?? 0) + Number(linkedCounts.find((c) => c.albumId === a.id && c.kind === "video")?.total ?? 0),
   }));
 }
 
@@ -337,7 +351,18 @@ export async function getAlbum(
     .from(albumMemories)
     .where(eq(albumMemories.albumId, id))
     .orderBy(desc(albumMemories.createdAt));
-  return { album, memories };
+  const linked = await db
+    .select({ id: postMedia.id, url: postMedia.url, kind: postMedia.kind, caption: posts.content, createdAt: postMedia.createdAt })
+    .from(posts)
+    .innerJoin(postMedia, eq(postMedia.postId, posts.id))
+    .where(eq(posts.albumId, id))
+    .orderBy(desc(postMedia.createdAt));
+  return {
+    album,
+    memories: [...memories, ...linked.map((item) => ({ ...item, albumId: id, id: -item.id }))].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    ),
+  };
 }
 
 export async function getWallMessages(): Promise<(WallMessage & { authorName: string | null })[]> {

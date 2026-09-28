@@ -16,11 +16,18 @@ export function MarkAllReadButton({ unread }: { unread: number }) {
       type="button"
       disabled={loading}
       onClick={async () => {
+        if (loading) return;
         setLoading(true);
-        await fetch("/api/notifications", { method: "POST" });
-        setLoading(false);
-        toast("Notificações lidas 💕");
-        router.refresh();
+        try {
+          const response = await fetch("/api/notifications", { method: "POST" });
+          if (!response.ok) throw new Error();
+          toast("Notificações lidas 💕");
+          router.refresh();
+        } catch {
+          toast("Não foi possível atualizar as notificações.", "error");
+        } finally {
+          setLoading(false);
+        }
       }}
       className="min-h-11 rounded-full border border-brand-pastel bg-white/80 px-4 text-sm font-bold text-brand transition hover:bg-white disabled:opacity-60"
     >

@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { MarkAllReadButton } from "@/components/notifications/MarkAllReadButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Avatar } from "@/components/ui/avatar";
 import { getNotifications, getUnreadCount } from "@/lib/data";
 import { getCurrentProfile } from "@/lib/session";
 import { timeAgo } from "@/lib/format";
+import { NotificationLink } from "@/components/notifications/NotificationLink";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +37,15 @@ export default async function NotificationsPage() {
         <ul className="card-soft divide-y divide-brand-pastel/60 overflow-hidden">
           {items.map((item) => (
             <li key={item.id}>
-              <Link
-                href={item.postId ? `/#post-${item.postId}` : "/"}
+              <NotificationLink
+                id={item.id}
+                href={item.postId ? `/post/${item.postId}` : "/"}
                 className={`flex items-center gap-3 px-4 py-3 transition hover:bg-brand-pastel/25 ${
                   item.read ? "" : "bg-brand-pastel/15"
                 }`}
               >
                 <Avatar name={item.actorName ?? "Nós"} src={item.actorAvatar} size="md" ring={false} />
+                {item.mediaUrl && <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-brand-pastel/40"><Image src={item.mediaUrl} alt="" width={48} height={48} unoptimized className="h-full w-full object-cover" /></div>}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-ink">
                     <span aria-hidden>{ICONS[item.kind] ?? "✨"}</span> {item.message}
@@ -52,7 +55,7 @@ export default async function NotificationsPage() {
                   </p>
                 </div>
                 {!item.read && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand" aria-label="Não lida" />}
-              </Link>
+              </NotificationLink>
             </li>
           ))}
         </ul>

@@ -22,18 +22,13 @@ export async function POST(request: Request, context: Params) {
   if (!post) return NextResponse.json({ error: "Momento não encontrado." }, { status: 404 });
 
   if (action === "like") {
-    const existing = await db
-      .select({ id: reactions.id })
-      .from(reactions)
-      .where(and(eq(reactions.postId, postId), eq(reactions.profileId, viewer.id)))
-      .limit(1);
-
-    if (existing.length) {
-      await db.delete(reactions).where(eq(reactions.id, existing[0].id));
+    const inserted = await db.insert(reactions).values({ postId, profileId: viewer.id })
+      .onConflictDoNothing({ target: [reactions.postId, reactions.profileId, reactions.kind] })
+      .returning({ id: reactions.id });
+    if (!inserted.length) {
+      await db.delete(reactions).where(and(eq(reactions.postId, postId), eq(reactions.profileId, viewer.id)));
       return NextResponse.json({ liked: false });
     }
-
-    await db.insert(reactions).values({ postId, profileId: viewer.id });
     await notify({
       profileId: post.authorId,
       actorId: viewer.id,
@@ -45,20 +40,18 @@ export async function POST(request: Request, context: Params) {
   }
 
   if (action === "save") {
-    const existing = await db
-      .select({ id: savedPosts.id })
-      .from(savedPosts)
-      .where(and(eq(savedPosts.postId, postId), eq(savedPosts.profileId, viewer.id)))
-      .limit(1);
-    if (existing.length) {
-      await db.delete(savedPosts).where(eq(savedPosts.id, existing[0].id));
+    const inserted = await db.insert(savedPosts).values({ postId, profileId: viewer.id })
+      .onConflictDoNothing({ target: [savedPosts.postId, savedPosts.profileId] })
+      .returning({ id: savedPosts.id });
+    if (!inserted.length) {
+      await db.delete(savedPosts).where(and(eq(savedPosts.postId, postId), eq(savedPosts.profileId, viewer.id)));
       return NextResponse.json({ saved: false });
     }
-    await db.insert(savedPosts).values({ postId, profileId: viewer.id });
     return NextResponse.json({ saved: true });
   }
 
   if (action === "special") {
+    if (post.authorId !== viewer.id) return NextResponse.json({ error: "Só é possível editar seu próprio momento." }, { status: 403 });
     const next = !post.isSpecial;
     await db
       .update(posts)

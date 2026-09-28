@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
@@ -47,4 +47,15 @@ export async function readUpload(name: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
+}
+
+export async function removeUploadUrl(url: string): Promise<void> {
+  const prefix = "/api/files/";
+  if (!url.startsWith(prefix)) return;
+  const name = url.slice(prefix.length);
+  if (!name || path.basename(name) !== name) return;
+  const target = path.resolve(UPLOAD_DIR, name);
+  const relative = path.relative(path.resolve(UPLOAD_DIR), target);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+  try { await unlink(target); } catch { /* File may already be absent on ephemeral hosting. */ }
 }
