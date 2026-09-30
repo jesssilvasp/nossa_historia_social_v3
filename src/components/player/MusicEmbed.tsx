@@ -1,6 +1,6 @@
 import type { PlayerTrack } from "./MusicPlayerProvider";
 
-function getEmbedSource(url: string): { provider: "youtube" | "spotify"; src: string } | null {
+export function getEmbedSource(url: string): { provider: "youtube" | "spotify"; id: string; type?: string } | null {
   try {
     const parsed = new URL(url);
     if (["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtube-nocookie.com"].includes(parsed.hostname)) {
@@ -9,11 +9,11 @@ function getEmbedSource(url: string): { provider: "youtube" | "spotify"; src: st
         : parsed.pathname === "/watch"
           ? parsed.searchParams.get("v")
           : parsed.pathname.split("/").filter(Boolean).at(-1);
-      if (id && /^[\w-]{11}$/.test(id)) return { provider: "youtube", src: `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0` };
+      if (id && /^[\w-]{11}$/.test(id)) return { provider: "youtube", id };
     }
     if (["open.spotify.com", "www.open.spotify.com"].includes(parsed.hostname)) {
       const [, type, id] = parsed.pathname.match(/^\/(track|album|playlist|episode)\/([\w]+)\/?$/) ?? [];
-      if (type && id) return { provider: "spotify", src: `https://open.spotify.com/embed/${type}/${id}?utm_source=generator` };
+      if (type && id) return { provider: "spotify", type, id };
     }
   } catch {
     return null;
@@ -30,9 +30,11 @@ export function MusicEmbed({ track, compact = false, className = "" }: { track: 
   if (!source) return null;
   return (
     <iframe
-      key={`${source.provider}:${source.src}`}
+      key={`${source.provider}:${source.id}`}
       title={`${track.title} — player ${source.provider === "youtube" ? "YouTube" : "Spotify"}`}
-      src={source.src}
+      src={source.provider === "youtube"
+        ? `https://www.youtube-nocookie.com/embed/${source.id}?playsinline=1&rel=0`
+        : `https://open.spotify.com/embed/${source.type}/${source.id}?utm_source=generator`}
       width="100%"
       height={source.provider === "youtube" ? (compact ? 200 : 240) : 152}
       className={`mt-3 w-full overflow-hidden rounded-xl border-0 ${className}`}

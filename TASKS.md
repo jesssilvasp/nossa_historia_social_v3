@@ -50,3 +50,24 @@ Build, lint e typecheck passando.
 - Links do YouTube/Spotify preservam a URL original e usam embeds oficiais; o endpoint resolve apenas metadados via oEmbed.
 - MP3 direto continua compatível com o player HTML Audio.
 - CSP permite frames apenas dos domínios dos players oficiais usados.
+
+
+## Player via links — atualização
+
+- Cadastro da playlist aceita links YouTube/Spotify e resolve título/artista/capa automaticamente.
+- Player global oferece controles próprios para YouTube; Spotify usa o player oficial para comandos e seek.
+- CSP libera scripts e frames oficiais do YouTube e Spotify.
+
+- Ao adicionar uma faixa, ela também é selecionada para aparecer no player global; inicialização dos callbacks dos players oficiais corrigida.
+
+- Neon local: DATABASE_URL usa sslmode=verify-full; pg-connection-string carrega a configuracao sem aviso de SSL.
+
+- YouTube IFrame API: comandos aguardam onReady para evitar loadVideoById antes de o player estar pronto.
+
+- Player YouTube: barra permite recolher o video para um quadro flutuante visivel de 320x200, preservando o mesmo iframe e a reproducao.
+
+- Player unificado no card direito: video YouTube e controles no mesmo lugar, volume persistente (0-100), sem barra musical inferior; no celular o card aparece no canto direito quando uma faixa e escolhida.
+
+- Mobile: botao Player sempre visivel no canto direito; abre o card mesmo antes da primeira faixa ser selecionada e permite iniciar a musica salva. O card abre automaticamente ao escolher uma faixa.
+
+- Mobile: toque fora do player expandido recolhe o card sem parar a reproducao; botao Player reabre. YouTube mantem o mesmo iframe visivel em 200x200 no modo compacto.

@@ -6,7 +6,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { ActionDialog } from "@/components/ui/ActionDialog";
 import { useToast } from "@/components/ui/toast";
 import { usePlayer, type PlayerTrack } from "@/components/player/MusicPlayerProvider";
-import { isEmbeddedMusicUrl, MusicEmbed } from "@/components/player/MusicEmbed";
 import { clock, fullDate, timeAgo } from "@/lib/format";
 import type { CommentItem, FeedPost } from "@/lib/data";
 
@@ -196,13 +195,6 @@ export function PostCard({ post, viewer, onDeleted }: { post: FeedPost; viewer: 
               {player.track?.id === `post-${post.id}` && player.playing ? "⏸" : "▶"}
             </span>
           </button>
-          {player.track?.id === `post-${post.id}` && isEmbeddedMusicUrl(m.url) && (
-            <MusicEmbed
-              track={{ id: `post-${post.id}`, title: m.title, artist: m.artist, url: m.url, coverUrl: m.cover }}
-              compact
-              className="lg:hidden"
-            />
-          )}
           </>
         );
       })()}

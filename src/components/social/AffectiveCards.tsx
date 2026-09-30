@@ -4,7 +4,7 @@ import { monthDayLabel, timeTogether } from "@/lib/format";
 import { NowPlayingCard } from "@/components/player/NowPlayingCard";
 import type { PlayerTrack } from "@/components/player/MusicPlayerProvider";
 
-export async function AffectiveCards() {
+export async function AffectiveCards({ sidebar = false }: { sidebar?: boolean } = {}) {
   const [settings, dates, tracks, throwback] = await Promise.all([
     getSettings(),
     getUpcomingDates(1),
@@ -24,8 +24,9 @@ export async function AffectiveCards() {
   const nowPlaying = playlist.find((t) => t.id === settings.nowPlayingTrackId) ?? playlist[0] ?? null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="card-soft p-4" aria-label="Nossa História">
+    <div className={sidebar ? "contents lg:flex lg:flex-col lg:gap-4" : "flex flex-col gap-4"}>
+      {sidebar && <NowPlayingCard track={nowPlaying} playlist={playlist} />}
+      <section className={`card-soft p-4 ${sidebar ? "hidden lg:block" : ""}`} aria-label="Nossa História">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-soft">💗 Nossa História</h2>
         <p className="mt-1 text-sm text-ink-soft">
           {settings.startDate ? "Juntas há" : "Defina a data de início nas configurações"}
@@ -44,7 +45,7 @@ export async function AffectiveCards() {
         )}
       </section>
 
-      <section className="card-soft p-4" aria-label="Próxima data especial">
+      <section className={`card-soft p-4 ${sidebar ? "hidden lg:block" : ""}`} aria-label="Próxima data especial">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-soft">📅 Próxima data especial</h2>
         {next ? (
           <div className="mt-2 flex items-center gap-3">
@@ -69,10 +70,8 @@ export async function AffectiveCards() {
         )}
       </section>
 
-      <NowPlayingCard track={nowPlaying} playlist={playlist} />
-
       {throwback && (
-        <section className="card-soft overflow-hidden" aria-label="Lembra disso?">
+        <section className={`card-soft overflow-hidden ${sidebar ? "hidden lg:block" : ""}`} aria-label="Lembra disso?">
           <h2 className="px-4 pt-4 text-sm font-bold uppercase tracking-wide text-ink-soft">✨ Lembra disso?</h2>
           {throwback.media[0]?.kind === "video" ? (
             <video

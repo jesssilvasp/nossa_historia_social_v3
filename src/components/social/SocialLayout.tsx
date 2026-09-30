@@ -29,7 +29,7 @@ export function SocialLayout({
           <DesktopSidebar viewer={viewer} profiles={profiles} unread={unread} />
           <div className="flex min-h-screen min-w-0 flex-1 flex-col sm:border-x sm:border-brand-pastel/60">
             <MobileHeader unread={unread} />
-            <main className="flex-1 px-3 pb-28 pt-3 sm:px-4 lg:pb-12">{children}</main>
+            <main className="flex-1 px-3 pb-24 pt-3 sm:px-4 lg:pb-12">{children}</main>
           </div>
           <RightSidebar />
         </div>

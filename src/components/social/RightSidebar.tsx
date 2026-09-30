@@ -4,10 +4,10 @@ export function RightSidebar() {
   return (
     <aside
       aria-label="Nossa História"
-      className="sticky top-0 hidden h-screen w-[300px] shrink-0 flex-col gap-4 overflow-y-auto py-4 pr-2 no-scrollbar xl:w-[320px] lg:flex"
+      className="contents lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[300px] lg:shrink-0 lg:flex-col lg:gap-4 lg:overflow-y-auto lg:py-4 lg:pr-2 lg:no-scrollbar xl:w-[320px]"
     >
-      <h2 className="px-2 text-lg font-extrabold text-ink">Nossa História 💕</h2>
-      <AffectiveCards />
+      <h2 className="hidden px-2 text-lg font-extrabold text-ink lg:block">Nossa História 💕</h2>
+      <AffectiveCards sidebar />
     </aside>
   );
 }

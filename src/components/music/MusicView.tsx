@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayer, type PlayerTrack } from "@/components/player/MusicPlayerProvider";
 import { useToast } from "@/components/ui/toast";
-import { isEmbeddedMusicUrl, MusicEmbed } from "@/components/player/MusicEmbed";
 
 export type TrackItem = {
   id: number;
@@ -20,19 +19,31 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
   const { toast } = useToast();
   const player = usePlayer();
   const [items, setItems] = useState(initial);
-  const [form, setForm] = useState({ title: "", artist: "", url: "" });
+  const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function add() {
-    if (!form.title.trim() || !form.url.trim()) {
-      toast("Informe o nome e o link da música.", "error");
+    if (!url.trim()) {
+      toast("Cole o link da música.", "error");
       return;
     }
     setSaving(true);
+    const metadataResponse = await fetch("/api/resolve-audio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!metadataResponse.ok) {
+      const detail = await metadataResponse.json().catch(() => null) as { error?: string } | null;
+      setSaving(false);
+      toast(detail?.error ?? "Use um link válido do YouTube ou Spotify.", "error");
+      return;
+    }
+    const metadata = await metadataResponse.json() as { title?: string; artist?: string; thumbnail?: string; url: string };
     const response = await fetch("/api/tracks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ title: metadata.title || "Nossa música", artist: metadata.artist || "", coverUrl: metadata.thumbnail || null, url: metadata.url }),
     });
     setSaving(false);
     if (!response.ok) {
@@ -41,7 +52,14 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
     }
     const data = (await response.json()) as { track: TrackItem };
     setItems((prev) => [data.track, ...prev]);
-    setForm({ title: "", artist: "", url: "" });
+    player.play({
+      id: data.track.id,
+      title: data.track.title,
+      artist: data.track.artist,
+      url: data.track.url,
+      coverUrl: data.track.coverUrl,
+    });
+    setUrl("");
     toast("Música adicionada 🎵");
     router.refresh();
   }
@@ -84,27 +102,15 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
     <div className="flex flex-col gap-4">
       <section className="card-soft p-4" aria-label="Adicionar música">
         <h2 className="mb-2 text-sm font-bold text-brand">🎵 Adicionar à nossa playlist</h2>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Nome da música"
-            aria-label="Nome da música"
-            className="min-h-11 rounded-full border border-brand-pastel bg-white px-4 text-sm outline-none"
-          />
-          <input
-            value={form.artist}
-            onChange={(e) => setForm({ ...form, artist: e.target.value })}
-            placeholder="Artista"
-            aria-label="Artista"
-            className="min-h-11 rounded-full border border-brand-pastel bg-white px-4 text-sm outline-none"
-          />
-          <input
-            value={form.url}
-            onChange={(e) => setForm({ ...form, url: e.target.value })}
-            placeholder="Link YouTube, Spotify ou MP3 direto"
-            aria-label="Link do áudio"
-            className="min-h-11 rounded-full border border-brand-pastel bg-white px-4 text-sm outline-none"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") void add(); }}
+            placeholder="Cole o link do YouTube ou Spotify"
+            aria-label="Link da música"
+            type="url"
+            className="min-h-11 min-w-0 flex-1 rounded-full border border-brand-pastel bg-white px-4 text-sm outline-none"
           />
         </div>
         <button
@@ -163,7 +169,6 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
                   🗑
                 </button>
                 </div>
-                {player.track?.id === track.id && isEmbeddedMusicUrl(track.url) && <MusicEmbed track={playlist[index]} compact className="lg:hidden" />}
               </li>
             );
           })}
