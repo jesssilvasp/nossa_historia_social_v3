@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tracks } from "@/db/schema";
 import { getSettings, getTracks } from "@/lib/data";
+import { sanitizePlainText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +15,15 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
     | { title?: string; artist?: string; url?: string; coverUrl?: string | null }
     | null;
-  const title = (body?.title ?? "").trim();
+  const title = sanitizePlainText(body?.title ?? "", 120);
   const url = (body?.url ?? "").trim();
   if (!title || !url) return NextResponse.json({ error: "Informe o nome e o link da música." }, { status: 400 });
 
   const [created] = await db
     .insert(tracks)
     .values({
-      title: title.slice(0, 120),
-      artist: (body?.artist ?? "").slice(0, 120),
+      title,
+      artist: body?.artist ? sanitizePlainText(body.artist, 120) : "",
       url,
       coverUrl: body?.coverUrl ?? null,
     })

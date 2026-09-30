@@ -23,6 +23,7 @@ export default async function AlbumPage({ params }: { params: Promise<{ id: stri
       </Link>
       <PageHeader title={album.title} subtitle={album.description ?? "Nossas memórias guardadas aqui 💗"} />
       <AlbumDetail
+        album={album}
         albumId={album.id}
         initial={memories.map((m) => ({
           id: m.id,

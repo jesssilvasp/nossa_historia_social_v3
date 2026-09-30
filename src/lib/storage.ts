@@ -1,8 +1,6 @@
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import path from "node:path";
+import { uploadToAppwrite, deleteFromAppwrite, getAppwriteFileUrl, kindFor } from "./appwrite";
 
-export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/tmp/uploads";
 
 const EXT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -21,41 +19,23 @@ const EXT_TYPES: Record<string, string> = {
 };
 
 export function contentTypeFor(name: string): string {
-  return EXT_TYPES[path.extname(name).toLowerCase()] ?? "application/octet-stream";
+  return EXT_TYPES[name.slice(name.lastIndexOf(".")).toLowerCase()] ?? "application/octet-stream";
 }
 
-export function kindFor(name: string): "image" | "video" | "audio" {
-  const type = contentTypeFor(name);
-  if (type.startsWith("video")) return "video";
-  if (type.startsWith("audio")) return "audio";
-  return "image";
-}
-
-export async function saveUpload(file: File): Promise<{ url: string; name: string; kind: string }> {
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-60) || "arquivo";
-  const name = `${randomUUID()}-${safe}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, name), buffer);
-  return { url: `/api/files/${name}`, name, kind: kindFor(name) };
+export async function saveUpload(file: File, folder: "avatars" | "covers" | "posts" | "albums" = "posts"): Promise<{ url: string; name: string; kind: string }> {
+  const result = await uploadToAppwrite(file, folder);
+  return { url: result.url, name: result.fileId, kind: result.kind };
 }
 
 export async function readUpload(name: string): Promise<Buffer | null> {
-  const safe = path.basename(name);
-  try {
-    return await readFile(path.join(UPLOAD_DIR, safe));
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export async function removeUploadUrl(url: string): Promise<void> {
-  const prefix = "/api/files/";
-  if (!url.startsWith(prefix)) return;
-  const name = url.slice(prefix.length);
-  if (!name || path.basename(name) !== name) return;
-  const target = path.resolve(UPLOAD_DIR, name);
-  const relative = path.relative(path.resolve(UPLOAD_DIR), target);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return;
-  try { await unlink(target); } catch { /* File may already be absent on ephemeral hosting. */ }
+  if (url.includes("/storage/buckets/")) {
+    const fileId = url.split("/files/")[1]?.split("/")[0];
+    if (fileId) await deleteFromAppwrite(fileId);
+  }
 }
+
+export { getAppwriteFileUrl, kindFor };

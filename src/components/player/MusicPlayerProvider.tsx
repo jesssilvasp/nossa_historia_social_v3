@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { isEmbeddedMusicUrl } from "./MusicEmbed";
 
 export type PlayerTrack = {
-  id: number;
+  id: number | string;
   title: string;
   artist: string;
   url: string;
@@ -42,28 +43,48 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const onTime = () => setProgress(audio.currentTime);
     const onMeta = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
     const onEnd = () => setPlaying(false);
+    const onError = () => {
+      console.error("Falha ao carregar áudio:", audio.error, audio.src);
+      setPlaying(false);
+    };
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("ended", onEnd);
+    audio.addEventListener("error", onError);
     return () => {
       audio.pause();
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnd);
+      audio.removeEventListener("error", onError);
     };
   }, []);
 
   const play = useCallback((next: PlayerTrack) => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (isEmbeddedMusicUrl(next.url)) {
+      audio.pause();
+      setPlaying(false);
+      setProgress(0);
+      setDuration(0);
+      setTrack(next);
+      return;
+    }
     setTrack((prev) => {
       if (prev?.id === next.id && prev.url === next.url) {
-        void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+        void audio.play().then(() => setPlaying(true)).catch((error) => {
+          console.error("Falha ao tocar áudio:", error, next.url);
+          setPlaying(false);
+        });
         return prev;
       }
       audio.src = next.url;
       audio.currentTime = 0;
-      void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      void audio.play().then(() => setPlaying(true)).catch((error) => {
+        console.error("Falha ao tocar áudio:", error, next.url);
+        setPlaying(false);
+      });
       return next;
     });
   }, []);
@@ -71,6 +92,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !track) return;
+    if (isEmbeddedMusicUrl(track.url)) return;
     if (playing) {
       audio.pause();
       setPlaying(false);

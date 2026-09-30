@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { comments, posts } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/session";
 import { getComments, notify } from "@/lib/data";
+import { sanitizeText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,9 @@ export async function POST(request: Request, context: Params) {
   const { id } = await context.params;
   const postId = Number(id);
   const body = (await request.json().catch(() => null)) as { content?: string } | null;
-  const content = (body?.content ?? "").trim();
+  const content = sanitizeText(body?.content ?? "");
   if (!Number.isInteger(postId) || postId < 1) return NextResponse.json({ error: "Momento inválido." }, { status: 400 });
   if (!content || content.length > 2000) return NextResponse.json({ error: "Comentário inválido ou acima de 2.000 caracteres." }, { status: 400 });
-  if (!content) return NextResponse.json({ error: "Comentário vazio." }, { status: 400 });
 
   const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
   if (!post) return NextResponse.json({ error: "Momento não encontrado." }, { status: 404 });

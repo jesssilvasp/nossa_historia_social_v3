@@ -4,6 +4,7 @@ import { postMedia, posts, profiles } from "@/db/schema";
 import { eq, ne } from "drizzle-orm";
 import { getCurrentProfile } from "@/lib/session";
 import { getFeed, notify } from "@/lib/data";
+import { sanitizeText, sanitizePlainText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
 
   if (!body) return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
 
-  const content = (body.content ?? "").trim();
+  const content = sanitizeText(body.content ?? "");
   const media = (body.media ?? []).filter((m) => typeof m?.url === "string" && m.url.length > 0);
   if (!content && media.length === 0) {
     return NextResponse.json({ error: "Escreva algo ou escolha uma foto 💗" }, { status: 400 });
@@ -59,10 +60,10 @@ export async function POST(request: Request) {
       authorId: viewer.id,
       content,
       isSpecial: Boolean(body.isSpecial),
-      specialTitle: body.isSpecial ? (body.specialTitle?.trim() || null) : null,
+      specialTitle: body.isSpecial ? sanitizePlainText(body.specialTitle ?? "") : null,
       albumId: body.albumId ?? null,
-      musicTitle: body.music?.title ?? null,
-      musicArtist: body.music?.artist ?? null,
+      musicTitle: body.music?.title ? sanitizePlainText(body.music.title) : null,
+      musicArtist: body.music?.artist ? sanitizePlainText(body.music.artist) : null,
       musicUrl: body.music?.url ?? null,
       musicCover: body.music?.cover ?? null,
     })
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
         kind: m.kind === "video" ? "video" : "image",
         posterUrl: m.posterUrl ?? null,
         durationSec: m.durationSec ?? null,
-        alt: m.alt ?? null,
+        alt: m.alt ? sanitizePlainText(m.alt) : null,
         position: index,
       })),
     );

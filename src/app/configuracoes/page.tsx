@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           username: viewer.username,
           displayName: viewer.displayName,
           avatarUrl: viewer.avatarUrl,
+          coverUrl: viewer.coverUrl,
           bio: viewer.bio,
         }}
         profiles={profiles.map((p) => ({

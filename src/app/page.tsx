@@ -2,14 +2,20 @@ import { AffectiveCards } from "@/components/social/AffectiveCards";
 import { FeedList } from "@/components/feed/FeedList";
 import { PostComposerForm } from "@/components/feed/PostComposerForm";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { getFeed, getSettings } from "@/lib/data";
+import { ThrowbackCard } from "@/components/feed/ThrowbackCard";
+import { getFeed, getSettings, getAlbums, getThrowback } from "@/lib/data";
 import { getCurrentProfile } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const viewer = await getCurrentProfile();
-  const [feed, settings] = await Promise.all([getFeed(viewer.id, { limit: 8 }), getSettings()]);
+  const [feed, settings, albums, throwback] = await Promise.all([
+    getFeed(viewer.id, { limit: 8 }),
+    getSettings(),
+    getAlbums(),
+    getThrowback(),
+  ]);
 
   const safeViewer = {
     id: viewer.id,
@@ -17,6 +23,8 @@ export default async function HomePage() {
     displayName: viewer.displayName,
     avatarUrl: viewer.avatarUrl,
   };
+
+  const simpleAlbums = albums.map((a) => ({ id: a.id, title: a.title, coverUrl: a.coverUrl }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -30,13 +38,15 @@ export default async function HomePage() {
         }
       />
 
-      <PostComposerForm viewer={safeViewer} />
+      <PostComposerForm viewer={safeViewer} albums={simpleAlbums} />
 
       <FeedList
         initial={feed}
         nextCursor={feed.length ? feed[feed.length - 1].createdAt : null}
         viewer={safeViewer}
       />
+
+      {throwback && <ThrowbackCard post={throwback} viewer={safeViewer} />}
 
       <div className="lg:hidden">
         <h2 className="px-1 pb-1 text-lg font-extrabold text-ink">Nossa História 💕</h2>

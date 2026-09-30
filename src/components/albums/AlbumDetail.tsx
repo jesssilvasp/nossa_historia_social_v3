@@ -12,12 +12,41 @@ export type AlbumMemoryItem = {
   createdAt: Date | string;
 };
 
-export function AlbumDetail({ albumId, initial }: { albumId: number; initial: AlbumMemoryItem[] }) {
+type Album = {
+  id: number;
+  title: string;
+  description: string | null;
+  coverUrl: string | null;
+  bgTheme: string;
+  ambientSound: string | null;
+  fontFamily: string;
+};
+
+const BG_THEMES = [
+  { key: "rosa", label: "Rosa", value: "#FFF1F4" },
+  { key: "pastel", label: "Pastel", value: "#FECBD5" },
+  { key: "nuvem", label: "Nuvem", value: "#FFF9FA" },
+  { key: "quente", label: "Quente", value: "#FDA4AF" },
+];
+
+const SOUND_OPTIONS = ["classico", "chuva", "jazz", "silencio"];
+const FONT_OPTIONS = [
+  { key: "padrao", label: "Padrão" },
+  { key: "serif", label: "Serif" },
+  { key: "mono", label: "Mono" },
+];
+
+export function AlbumDetail({ album, albumId, initial }: { album: Album; albumId: number; initial: AlbumMemoryItem[] }) {
   const { toast } = useToast();
   const [items, setItems] = useState(initial);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [customizing, setCustomizing] = useState(false);
+  const [theme, setTheme] = useState(album.bgTheme);
+  const [sound, setSound] = useState(album.ambientSound ?? "classico");
+  const [font, setFont] = useState(album.fontFamily);
+  const [savingTheme, setSavingTheme] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function upload(files: FileList | null) {
@@ -66,6 +95,22 @@ export function AlbumDetail({ albumId, initial }: { albumId: number; initial: Al
     });
   }
 
+  async function saveCustomization() {
+    setSavingTheme(true);
+    const response = await fetch("/api/albums", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ albumId, bgTheme: theme, ambientSound: sound, fontFamily: font }),
+    });
+    setSavingTheme(false);
+    if (response.ok) {
+      toast("Personalização salva 💗");
+      setCustomizing(false);
+    } else {
+      toast("Não deu para salvar.", "error");
+    }
+  }
+
   useEffect(() => {
     if (openIndex === null) return;
     const onKey = (event: KeyboardEvent) => {
@@ -101,6 +146,83 @@ export function AlbumDetail({ albumId, initial }: { albumId: number; initial: Al
         {uploading && (
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-brand-pastel/60">
             <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+      </section>
+
+      <section className="card-soft p-4" aria-label="Personalizar álbum">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-ink">✨ Personalizar</h3>
+          <button
+            type="button"
+            onClick={() => setCustomizing(!customizing)}
+            className="min-h-10 rounded-full border border-brand-pastel bg-white px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand-pastel/40"
+          >
+            {customizing ? "Fechar" : "Editar"}
+          </button>
+        </div>
+
+        {customizing && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <fieldset>
+              <legend className="text-sm font-semibold text-ink">Cor de fundo</legend>
+              <div className="mt-2 flex gap-2">
+                {BG_THEMES.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    aria-pressed={theme === option.key}
+                    aria-label={option.label}
+                    onClick={() => setTheme(option.key)}
+                    className={`h-10 w-10 rounded-full border-2 transition ${theme === option.key ? "border-brand scale-110" : "border-white"}`}
+                    style={{ background: option.value }}
+                  />
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="grid gap-1 text-sm font-semibold text-ink">
+              Som ambiente
+              <select
+                value={sound}
+                onChange={(e) => setSound(e.target.value)}
+                className="min-h-11 rounded-2xl border border-brand-pastel bg-white px-3 text-sm outline-none"
+              >
+                {SOUND_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-semibold text-ink">
+              Fonte
+              <select
+                value={font}
+                onChange={(e) => setFont(e.target.value)}
+                className="min-h-11 rounded-2xl border border-brand-pastel bg-white px-3 text-sm outline-none"
+              >
+                {FONT_OPTIONS.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {customizing && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void saveCustomization()}
+              disabled={savingTheme}
+              className="min-h-11 rounded-full bg-gradient-to-r from-brand to-brand-mid px-5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {savingTheme ? "Salvando..." : "Salvar"}
+            </button>
           </div>
         )}
       </section>

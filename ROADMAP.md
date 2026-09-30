@@ -32,40 +32,40 @@
 
 ## Fase 3 --- Perfis
 
--   [ ] perfil
--   [ ] avatar
--   [ ] capa
--   [ ] bio
--   [ ] posts por perfil
+-   [x] perfil
+-   [x] avatar
+-   [x] capa
+-   [x] bio
+-   [x] posts por perfil
 
 ## Fase 4 --- Álbuns
 
--   [ ] integrar álbuns existentes ao social
--   [ ] associar post a álbum
--   [ ] página interna
--   [ ] personalização
--   [ ] lightbox
+-   [x] integrar álbuns existentes ao social
+-   [x] associar post a álbum
+-   [x] página interna
+-   [x] personalização
+-   [x] lightbox
 
 ## Fase 5 --- Memórias afetivas
 
--   [ ] mural
--   [ ] linha do tempo
--   [ ] datas especiais
--   [ ] contador
--   [ ] throwback
+-   [x] mural
+-   [x] linha do tempo
+-   [x] datas especiais
+-   [x] contador
+-   [x] throwback
 
 ## Fase 6 --- Música
 
--   [ ] integrar player atual
--   [ ] post com música
--   [ ] tocando agora
--   [ ] som ambiente quando aplicável
+-   [x] integrar player atual
+-   [x] post com música
+-   [x] tocando agora
+-   [x] som ambiente quando aplicável
 
 ## Fase 7 --- Qualidade
 
--   [ ] segurança
--   [ ] acessibilidade
--   [ ] performance
--   [ ] realtime
--   [ ] testes
--   [ ] revisão mobile
+-   [x] segurança
+-   [x] acessibilidade
+-   [x] performance
+-   [x] realtime
+-   [x] testes
+-   [x] revisão mobile

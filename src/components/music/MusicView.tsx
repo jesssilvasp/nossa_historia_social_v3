@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayer, type PlayerTrack } from "@/components/player/MusicPlayerProvider";
 import { useToast } from "@/components/ui/toast";
+import { isEmbeddedMusicUrl, MusicEmbed } from "@/components/player/MusicEmbed";
 
 export type TrackItem = {
   id: number;
@@ -101,7 +102,7 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
           <input
             value={form.url}
             onChange={(e) => setForm({ ...form, url: e.target.value })}
-            placeholder="Link do áudio"
+            placeholder="Link YouTube, Spotify ou MP3 direto"
             aria-label="Link do áudio"
             className="min-h-11 rounded-full border border-brand-pastel bg-white px-4 text-sm outline-none"
           />
@@ -129,7 +130,8 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
           {items.map((track, index) => {
             const isCurrent = (player.track?.id ?? nowPlayingId) === track.id;
             return (
-              <li key={track.id} className="flex items-center gap-3 p-3">
+              <li key={track.id} className="p-3">
+                <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => player.play(playlist[index])}
@@ -160,6 +162,8 @@ export function MusicView({ initial, nowPlayingId }: { initial: TrackItem[]; now
                 >
                   🗑
                 </button>
+                </div>
+                {player.track?.id === track.id && isEmbeddedMusicUrl(track.url) && <MusicEmbed track={playlist[index]} compact className="lg:hidden" />}
               </li>
             );
           })}

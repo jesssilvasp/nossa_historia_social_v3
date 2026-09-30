@@ -13,9 +13,10 @@ type Props = {
   viewer: ComposerViewer;
   autoFocus?: boolean;
   onPublished?: () => void;
+  albums?: { id: number; title: string; coverUrl: string | null }[];
 };
 
-export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Props) {
+export function PostComposerForm({ viewer, autoFocus = false, onPublished, albums = [] }: Props) {
   const router = useRouter();
   const { toast } = useToast();
   const [content, setContent] = useState("");
@@ -25,8 +26,10 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
   const [special, setSpecial] = useState(false);
   const [specialTitle, setSpecialTitle] = useState("");
   const [showMusic, setShowMusic] = useState(false);
-  const [music, setMusic] = useState({ title: "", artist: "", url: "" });
+  const [music, setMusic] = useState({ title: "", artist: "", url: "", cover: "" });
+  const [musicResolving, setMusicResolving] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [albumId, setAlbumId] = useState<number | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +65,39 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
     });
   }
 
+  async function handleMusicUrlChange(url: string) {
+    setMusic((prev) => ({ ...prev, url }));
+    const isYoutube = /youtube\.com|youtu\.be/.test(url);
+    const isSpotify = /spotify\.com\/(track|album|playlist)/.test(url);
+    if ((isYoutube || isSpotify) && url.trim().length > 10) {
+      setMusicResolving(true);
+      try {
+        const response = await fetch("/api/resolve-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await response.json().catch(() => null);
+        if (response.ok && data?.url) {
+          setMusic((prev) => ({
+            ...prev,
+            title: data.title || prev.title,
+            artist: data.artist || prev.artist,
+            url: data.url,
+            cover: data.thumbnail || prev.cover,
+          }));
+          toast("Link identificado. O player oficial será usado ao tocar.");
+        } else {
+          toast(data?.error || "Não foi possível resolver esse link.", "error");
+        }
+      } catch {
+        toast("Falha de rede ao resolver o link.", "error");
+      } finally {
+        setMusicResolving(false);
+      }
+    }
+  }
+
   async function publish() {
     if (!content.trim() && media.length === 0) return;
     setSaving(true);
@@ -73,7 +109,8 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
         media: media.map((m) => ({ url: m.url, kind: m.kind, alt: m.name })),
         isSpecial: special,
         specialTitle: specialTitle || null,
-        music: music.url || music.title ? music : null,
+        albumId,
+        music: music.url || music.title ? { title: music.title, artist: music.artist, url: music.url, cover: music.cover } : null,
       }),
     });
     setSaving(false);
@@ -86,7 +123,7 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
     setMedia([]);
     setSpecial(false);
     setSpecialTitle("");
-    setMusic({ title: "", artist: "", url: "" });
+    setMusic({ title: "", artist: "", url: "", cover: "" });
     setShowMusic(false);
     toast("Momento publicado 💗");
     onPublished?.();
@@ -163,11 +200,12 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
               />
               <input
                 value={music.url}
-                onChange={(e) => setMusic({ ...music, url: e.target.value })}
-                placeholder="Link do áudio"
+                onChange={(e) => handleMusicUrlChange(e.target.value)}
+            placeholder="Link YouTube, Spotify ou MP3 direto"
                 aria-label="Link do áudio"
                 className="rounded-xl border border-brand-pastel bg-white px-3 py-2 text-sm outline-none sm:col-span-1"
               />
+              {musicResolving && <p className="col-span-3 text-xs text-brand">🔎 Resolvendo link...</p>}
             </div>
           )}
 
@@ -217,6 +255,22 @@ export function PostComposerForm({ viewer, autoFocus = false, onPublished }: Pro
               onClick={() => setShowMusic((v) => !v)}
             />
             <ToolButton label="Momento Especial" icon="✨" active={special} onClick={() => setSpecial((v) => !v)} />
+
+            {albums.length > 0 && (
+              <select
+                value={albumId ?? ""}
+                onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : null)}
+                className="min-h-11 rounded-full border border-brand-pastel bg-white px-3 py-2 text-sm outline-none"
+                aria-label="Escolher álbum"
+              >
+                <option value="">📁 Sem álbum</option>
+                {albums.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <button
               type="button"

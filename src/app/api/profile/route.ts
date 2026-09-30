@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { profiles } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/session";
+import { sanitizePlainText, sanitizeText, sanitizeUsername } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +16,15 @@ export async function PATCH(request: Request) {
 
   const patch: Record<string, unknown> = {};
   if (typeof body.displayName === "string" && body.displayName.trim()) {
-    patch.displayName = body.displayName.trim().slice(0, 60);
+    patch.displayName = sanitizePlainText(body.displayName, 60);
   }
-  if (typeof body.bio === "string") patch.bio = body.bio.slice(0, 200);
+  if (typeof body.bio === "string") patch.bio = sanitizeText(body.bio, 200);
   if (typeof body.avatarUrl === "string") patch.avatarUrl = body.avatarUrl;
   if (body.avatarUrl === null) patch.avatarUrl = null;
   if (typeof body.coverUrl === "string") patch.coverUrl = body.coverUrl;
   if (body.coverUrl === null) patch.coverUrl = null;
   if (typeof body.username === "string" && body.username.trim()) {
-    patch.username = body.username.trim().toLowerCase().replace(/[^a-z0-9_.]/g, "").slice(0, 24);
+    patch.username = sanitizeUsername(body.username);
   }
 
   if (Object.keys(patch).length === 0) return NextResponse.json({ ok: true });

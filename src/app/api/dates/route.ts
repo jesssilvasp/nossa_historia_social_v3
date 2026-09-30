@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { specialDates } from "@/db/schema";
 import { getUpcomingDates } from "@/lib/data";
+import { sanitizePlainText, sanitizeText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
     | { title?: string; date?: string; emoji?: string; recurring?: boolean }
     | null;
-  const title = (body?.title ?? "").trim();
+  const title = sanitizePlainText(body?.title ?? "", 80);
   const date = (body?.date ?? "").trim();
   if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: "Informe um título e uma data válida." }, { status: 400 });
@@ -22,9 +23,9 @@ export async function POST(request: Request) {
   const [created] = await db
     .insert(specialDates)
     .values({
-      title: title.slice(0, 80),
+      title,
       date,
-      emoji: (body?.emoji ?? "💕").slice(0, 4),
+      emoji: sanitizePlainText(body?.emoji ?? "💕", 4),
       recurring: body?.recurring ?? true,
     })
     .returning();

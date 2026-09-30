@@ -16,7 +16,7 @@ type Props = {
     bgColor: string;
     fontFamily: string;
   };
-  viewer: { id: number; username: string; displayName: string; avatarUrl: string | null; bio: string | null };
+  viewer: { id: number; username: string; displayName: string; avatarUrl: string | null; coverUrl: string | null; bio: string | null };
   profiles: { id: number; username: string; displayName: string; avatarUrl: string | null }[];
   dates: { id: number; title: string; date: string; emoji: string; daysLeft: number }[];
 };
@@ -38,9 +38,13 @@ export function SettingsView({ settings, viewer, profiles, dates }: Props) {
     displayName: viewer.displayName,
     bio: viewer.bio ?? "",
     username: viewer.username,
+    avatarUrl: viewer.avatarUrl,
+    coverUrl: viewer.coverUrl,
   });
   const [dateForm, setDateForm] = useState({ title: "", date: "", emoji: "💕" });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const together = timeTogether(form.startDate);
 
   async function saveSettings() {
@@ -63,6 +67,36 @@ export function SettingsView({ settings, viewer, profiles, dates }: Props) {
     });
     toast(response.ok ? "Perfil atualizado ✨" : "Não conseguimos atualizar.", response.ok ? "ok" : "error");
     router.refresh();
+  }
+
+  async function uploadAvatar(file: File) {
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/upload", { method: "POST", body: formData });
+    setUploadingAvatar(false);
+    if (!response.ok) {
+      toast("Não conseguimos enviar o avatar.", "error");
+      return;
+    }
+    const data = await response.json();
+    setProfileForm((prev) => ({ ...prev, avatarUrl: data.url }));
+    toast("Avatar atualizado 💗");
+  }
+
+  async function uploadCover(file: File) {
+    setUploadingCover(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/upload", { method: "POST", body: formData });
+    setUploadingCover(false);
+    if (!response.ok) {
+      toast("Não conseguimos enviar a capa.", "error");
+      return;
+    }
+    const data = await response.json();
+    setProfileForm((prev) => ({ ...prev, coverUrl: data.url }));
+    toast("Capa atualizada 💗");
   }
 
   async function switchProfile(id: number) {
@@ -116,7 +150,61 @@ export function SettingsView({ settings, viewer, profiles, dates }: Props) {
 
       <section className="card-soft p-4" aria-label="Editar perfil">
         <h2 className="text-sm font-bold uppercase tracking-wide text-ink-soft">✏️ Perfil</h2>
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar name={profileForm.displayName} src={profileForm.avatarUrl} size="xl" />
+            <div className="flex flex-col gap-2">
+              <label className="min-h-11 rounded-full bg-brand-pastel/40 px-4 py-2 text-sm font-semibold text-brand cursor-pointer transition hover:bg-brand-pastel/60">
+                Trocar avatar
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => e.target.files?.[0] && uploadAvatar(e.target.files[0])}
+                  disabled={uploadingAvatar}
+                />
+              </label>
+              <label className="min-h-11 rounded-full border border-brand-pastel px-4 py-2 text-sm font-semibold text-ink cursor-pointer transition hover:bg-brand-pastel/10">
+                Remover avatar
+                <input
+                  type="button"
+                  className="sr-only"
+                  onClick={() => setProfileForm((prev) => ({ ...prev, avatarUrl: null }))}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="relative h-24 w-48 sm:h-32 sm:w-64 rounded-2xl overflow-hidden border border-brand-pastel bg-brand-pastel/30">
+              {profileForm.coverUrl ? (
+                <img src={profileForm.coverUrl} alt="Prévia da capa" className="h-full w-full object-cover" />
+              ) : (
+                <span className="absolute inset-0 flex items-center justify-center text-2xl opacity-50" aria-hidden>♡ ✦</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="min-h-11 rounded-full bg-brand-pastel/40 px-4 py-2 text-sm font-semibold text-brand cursor-pointer transition hover:bg-brand-pastel/60">
+                Trocar capa
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])}
+                  disabled={uploadingCover}
+                />
+              </label>
+              <label className="min-h-11 rounded-full border border-brand-pastel px-4 py-2 text-sm font-semibold text-ink cursor-pointer transition hover:bg-brand-pastel/10">
+                Remover capa
+                <input
+                  type="button"
+                  className="sr-only"
+                  onClick={() => setProfileForm((prev) => ({ ...prev, coverUrl: null }))}
+                />
+              </label>
+            </div>
+          </div>
+
           <input
             value={profileForm.displayName}
             onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}

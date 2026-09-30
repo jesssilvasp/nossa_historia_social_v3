@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { wallMessages } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/session";
 import { getWallMessages } from "@/lib/data";
+import { sanitizeText, sanitizePlainText } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const viewer = await getCurrentProfile();
   const body = (await request.json().catch(() => null)) as { content?: string; emoji?: string } | null;
-  const content = (body?.content ?? "").trim();
+  const content = sanitizeText(body?.content ?? "", 280);
   if (!content) return NextResponse.json({ error: "Escreva um recadinho 💗" }, { status: 400 });
 
   await db.insert(wallMessages).values({
     authorId: viewer.id,
-    content: content.slice(0, 280),
-    emoji: (body?.emoji ?? "💗").slice(0, 4),
+    content,
+    emoji: sanitizePlainText(body?.emoji ?? "💗", 4),
   });
 
   return NextResponse.json({ items: await getWallMessages() }, { status: 201 });

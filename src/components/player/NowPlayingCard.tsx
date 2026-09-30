@@ -1,11 +1,13 @@
 "use client";
 
 import { usePlayer, type PlayerTrack } from "./MusicPlayerProvider";
+import { isEmbeddedMusicUrl, MusicEmbed } from "./MusicEmbed";
 
 export function NowPlayingCard({ track, playlist }: { track: PlayerTrack | null; playlist: PlayerTrack[] }) {
   const player = usePlayer();
   const current = player.track ?? track;
   const index = current ? playlist.findIndex((t) => t.id === current.id) : -1;
+  const embedded = current ? isEmbeddedMusicUrl(current.url) : false;
 
   return (
     <section className="card-soft overflow-hidden" aria-label="Tocando agora">
@@ -27,7 +29,9 @@ export function NowPlayingCard({ track, playlist }: { track: PlayerTrack | null;
             </div>
           </div>
 
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-brand-pastel/60">
+          {embedded && <MusicEmbed track={current} compact />}
+
+          {!embedded && <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-brand-pastel/60">
             <div
               className="h-full rounded-full bg-brand transition-[width] duration-300"
               style={{
@@ -38,9 +42,9 @@ export function NowPlayingCard({ track, playlist }: { track: PlayerTrack | null;
                     : "0%",
               }}
             />
-          </div>
+          </div>}
 
-          <div className="mt-3 flex items-center gap-2">
+          {!embedded && <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
@@ -79,7 +83,7 @@ export function NowPlayingCard({ track, playlist }: { track: PlayerTrack | null;
             >
               ⏹
             </button>
-          </div>
+          </div>}
         </div>
       ) : (
         <p className="px-4 pb-4 text-sm text-ink-soft">

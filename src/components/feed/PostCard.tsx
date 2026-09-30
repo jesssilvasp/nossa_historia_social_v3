@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { ActionDialog } from "@/components/ui/ActionDialog";
 import { useToast } from "@/components/ui/toast";
+import { usePlayer, type PlayerTrack } from "@/components/player/MusicPlayerProvider";
+import { isEmbeddedMusicUrl, MusicEmbed } from "@/components/player/MusicEmbed";
 import { clock, fullDate, timeAgo } from "@/lib/format";
 import type { CommentItem, FeedPost } from "@/lib/data";
 
@@ -12,6 +14,7 @@ type Viewer = { id: number; displayName: string; username: string; avatarUrl: st
 
 export function PostCard({ post, viewer, onDeleted }: { post: FeedPost; viewer: Viewer; onDeleted?: (id: number) => void }) {
   const { toast } = useToast();
+  const player = usePlayer();
   const [liked, setLiked] = useState(post.liked);
   const [saved, setSaved] = useState(post.saved);
   const [isSpecial, setIsSpecial] = useState(post.isSpecial);
@@ -166,18 +169,43 @@ export function PostCard({ post, viewer, onDeleted }: { post: FeedPost; viewer: 
         <PostMediaGrid media={post.media} onOpen={(index) => setLightbox(index)} />
       )}
 
-      {post.music && (
-        <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-brand-pastel/80 bg-white/70 p-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-pastel/60 text-lg" aria-hidden>
-            🎵
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink">{post.music.title}</p>
-            <p className="truncate text-xs text-ink-soft">{post.music.artist || "Nossa música"}</p>
-          </div>
-          {post.music.url && <span className="ml-auto text-xs font-semibold text-brand">▶</span>}
-        </div>
-      )}
+      {post.music && post.music.url && (() => {
+        const m = post.music;
+        return (
+          <>
+          <button
+            type="button"
+            onClick={() => player.play({
+              id: `post-${post.id}`,
+              title: m.title,
+              artist: m.artist || "Nossa música",
+              url: m.url,
+              coverUrl: m.cover,
+            })}
+            className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-brand-pastel/80 bg-white/70 p-3 transition hover:bg-brand-pastel/25"
+            aria-label={`Tocar ${m.title}`}
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-pastel/60 text-lg" aria-hidden>
+              🎵
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-ink">{m.title}</p>
+              <p className="truncate text-xs text-ink-soft">{m.artist || "Nossa música"}</p>
+            </div>
+            <span className="ml-auto text-xs font-semibold text-brand">
+              {player.track?.id === `post-${post.id}` && player.playing ? "⏸" : "▶"}
+            </span>
+          </button>
+          {player.track?.id === `post-${post.id}` && isEmbeddedMusicUrl(m.url) && (
+            <MusicEmbed
+              track={{ id: `post-${post.id}`, title: m.title, artist: m.artist, url: m.url, coverUrl: m.cover }}
+              compact
+              className="lg:hidden"
+            />
+          )}
+          </>
+        );
+      })()}
 
       <div className="mt-2 flex items-center gap-1 border-t border-brand-pastel/60 px-2 py-1.5">
         <ActionButton

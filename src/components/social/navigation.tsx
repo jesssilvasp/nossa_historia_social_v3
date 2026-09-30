@@ -13,6 +13,7 @@ const items = [
   { href: "/", label: "Início", icon: "🏠" },
   { href: "/notificacoes", label: "Notificações", icon: "🔔" },
   { href: "/mural", label: "Nosso Mural", icon: "💌" },
+  { href: "/datas", label: "Datas Especiais", icon: "📅" },
   { href: "/albuns", label: "Álbuns", icon: "🖼" },
   { href: "/musicas", label: "Músicas", icon: "🎵" },
   { href: "/momentos", label: "Momentos Especiais", icon: "✨" },
@@ -205,6 +206,7 @@ export function MobileBottomNav({ viewer }: { viewer: NavProfile }) {
         <ul className="mx-auto flex max-w-lg items-center justify-around px-2 py-1.5">
           <NavItem href="/" icon="🏠" label="Início" active={pathname === "/"} />
           <NavItem href="/notificacoes" icon="🔔" label="Notificações" active={pathname.startsWith("/notificacoes")} />
+          <NavItem href="/datas" icon="📅" label="Datas" active={pathname.startsWith("/datas")} />
           <li>
             <button
               type="button"
